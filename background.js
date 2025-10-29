@@ -3,55 +3,124 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         try {
             switch (request.action) {
                 case 'syncMessage':
-                    console.warn("Contact syncing is currently disabled.");
-                    sendResponse({ success: false, error: 'Contact syncing is temporarily disabled.' });
-                    break;
+                    return sendResponse({ success: false, error: 'Contact syncing is temporarily disabled.' });
 
                 case 'testConnection':
-                    await handleTestConnection(sendResponse);
-                    break;
+                    return await handleTestConnection(sendResponse);
 
                 case 'fetchContacts':
-                    await handleFetchContacts(sendResponse);
-                    break;
+                    return await handleFetchContacts(sendResponse);
 
                 case 'updateHubspotPhone':
-                    await handleUpdateHubspotPhone(request.data, sendResponse);
-                    break;
+                    return await handleUpdateHubspotPhone(request.data, sendResponse);
 
                 case 'createHubSpotContact':
-                    try {
-                        const { hubspotApiKey: apiKey } = await getConfig();
-                        const res = await fetch("https://api.hubapi.com/crm/v3/objects/contacts", {
-                            method: "POST",
-                            headers: {
-                                "Authorization": `Bearer ${apiKey}`,
-                                "Content-Type": "application/json"
-                            },
-                            body: JSON.stringify({ properties: request.data })
-                        });
-                        const result = await res.json();
-                        sendResponse({ success: true, data: result });
-                    } catch (err) {
-                        sendResponse({ success: false, error: err.message });
-                    }
-                    break;
+                    return await handleCreateHubSpotContact(request.data, sendResponse);
+
+                case 'saveWhatsAppMessagesToHubspot':
+                    return await handleSaveWhatsAppMessages(request.data, sendResponse);
 
                 default:
-                    sendResponse({ success: false, error: 'Unknown action' });
+                    return sendResponse({ success: false, error: 'Unknown action' });
             }
         } catch (err) {
             sendResponse({ success: false, error: err.message });
         }
     })();
-
     return true;
 });
 
+async function handleSaveWhatsAppMessages(data, sendResponse) {
+    try {
+        const { messages, contactId } = data;
+
+        if (!contactId) throw new Error("No HubSpot contact ID provided");
+        if (!Array.isArray(messages) || !messages.length) throw new Error("No messages provided");
+
+        const { hubspotApiKey: apiKey } = await getConfig();
+        if (!apiKey) throw new Error("No HubSpot API key found");
+
+        const results = [];
+
+        for (const msg of messages) {
+            const payload = {
+                engagement: {
+                    active: true,
+                    type: "NOTE",
+                    timestamp: new Date(msg.timestamp).getTime() || Date.now()
+                },
+                associations: {
+                    contactIds: [contactId]
+                },
+                metadata: {
+                    body: msg.msgHTML 
+                }
+            };
+
+            const response = await fetch("https://api.hubapi.com/engagements/v1/engagements", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            results.push(result);
+
+            if (!response.ok) throw new Error(`Failed to save message from ${msg.sender}`);
+        }
+
+        const contactRes = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${contactId}?properties=firstname,lastname,email,phone,company,jobtitle,lifecyclestage,hs_lead_status,hubspot_owner_id`, {
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
+            }
+        });
+
+        if (!contactRes.ok) throw new Error("Failed to fetch contact details");
+
+        const contactData = await contactRes.json();
+
+        sendResponse({ success: true, data: { contact: contactData, engagements: results } });
+
+    } catch (err) {
+        sendResponse({ success: false, error: err.message });
+    }
+}
+
+async function getHubspotContactId(sender) {
+    const { hubspotApiKey: apiKey } = await getConfig();
+    if (!apiKey) throw new Error("No HubSpot API key found");
+    const response = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/search`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            filterGroups: [{ filters: [{ propertyName: "phone", operator: "EQ", value: sender }] }],
+            properties: ["firstname", "lastname", "phone"],
+            limit: 1
+        })
+    });
+
+    const data = await response.json();
+    return data.results?.[0]?.id || null;
+}
+
 async function handleTestConnection(sendResponse) {
     try {
-        const result = await testHubSpotConnection();
-        sendResponse({ success: true, data: result });
+        const { hubspotApiKey: apiKey } = await getConfig();
+        if (!apiKey) throw new Error('API key not configured');
+
+        const response = await fetch('https://api.hubapi.com/crm/v3/objects/contacts?limit=1', {
+            headers: { Authorization: `Bearer ${apiKey}` }
+        });
+
+        if (!response.ok) throw new Error('Invalid API key or connection failed');
+        sendResponse({ success: true, data: { status: 'connected' } });
     } catch (err) {
         sendResponse({ success: false, error: err.message });
     }
@@ -67,7 +136,7 @@ async function handleFetchContacts(sendResponse) {
         let after;
 
         while (hasMore) {
-            const url = `https://api.hubapi.com/crm/v3/objects/contacts?limit=100&properties=firstname,lastname,email,phone,company,jobtitle,lifecyclestage,hs_lead_status,hubspot_owner_id${after ? `&after=${after}` : ''}`;
+            const url = `https://api.hubapi.com/crm/v3/objects/contacts?limit=100&properties=firstname,lastname,email,phone${after ? `&after=${after}` : ''}`;
             const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
             if (!res.ok) throw new Error(`Failed to fetch contacts: ${res.status}`);
             const data = await res.json();
@@ -108,48 +177,33 @@ async function handleUpdateHubspotPhone(data, sendResponse) {
     }
 }
 
-async function getContactDetails(contactId, apiKey) {
-    const url = `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}?properties=firstname,lastname,email,phone,company,jobtitle,lifecyclestage,hs_lead_status,hubspot_owner_id`;
-    const res = await fetch(url, {
-        headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json"
-        }
-    });
+async function handleCreateHubSpotContact(data, sendResponse) {
+    try {
+        const { hubspotApiKey: apiKey } = await getConfig();
+        const res = await fetch("https://api.hubapi.com/crm/v3/objects/contacts", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ properties: data })
+        });
+        const result = await res.json();
+        sendResponse({ success: true, data: result });
+    } catch (err) {
+        sendResponse({ success: false, error: err.message });
+    }
+}
 
+async function getContactDetails(contactId, apiKey) {
+    const res = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${contactId}?properties=firstname,lastname,email,phone`, {
+        headers: { "Authorization": `Bearer ${apiKey}` }
+    });
     if (!res.ok) throw new Error(`Failed to fetch contact ${contactId}`);
     const data = await res.json();
     return data.properties;
 }
 
-async function testHubSpotConnection() {
-    const { hubspotApiKey: apiKey } = await getConfig();
-    if (!apiKey) throw new Error('API key not configured');
-
-    const response = await fetch('https://api.hubapi.com/crm/v3/objects/contacts?limit=1', {
-        headers: { Authorization: `Bearer ${apiKey}` }
-    });
-
-    if (!response.ok) throw new Error('Invalid API key or connection failed');
-    return { status: 'connected' };
-}
-
-async function syncToHubSpot() {
-    console.warn("syncToHubSpot() is disabled.");
-    return { disabled: true };
-}
-
-async function findOrCreateContact() {
-    console.warn("findOrCreateContact() is disabled.");
-    return { disabled: true };
-}
-
-async function createEngagement() {
-    console.warn("createEngagement() is disabled.");
-    return { disabled: true };
-}
-
-// ------------------- Utility -------------------
 async function getConfig() {
-    return new Promise(resolve => chrome.storage.sync.get(['hubspotApiKey', 'autoSync'], resolve));
+    return new Promise(resolve => chrome.storage.sync.get(['hubspotApiKey'], resolve));
 }

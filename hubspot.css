@@ -1,3 +1,98 @@
+.__WAW_NEXT__, .ldL67, [data-testid=drawer-left] [data-testid=drawer-middle], ._2Ts6i, ._3RGKj, ._2xAQV, ._aigw, ._aigz, div.x1n2onr6.xyw6214.x5yr21d.x6ikm8r.x10wlt62.x17dzmu4.xyyilfv.x1iyjqo2.xy80clv.x26u7qi.x1ux35ld, div.x9f619.x1n2onr6.x5yr21d.x6ikm8r.x10wlt62.x17dzmu4.x1i1dayz.x2ipvbc.x1w8yi2h.xyyilfv.x1iyjqo2.xa1v5g2, ._aig-, div#main{
+    height: calc(100% - 48px) !important;
+    top: 48px !important;
+}
+
+div#main{
+    position: relative;
+}
+#hubspot-navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 50px;
+    overflow: hidden;
+    background-color: rgb(40, 40, 40);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 9999;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+#hubspot-navbar .nav-inner {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 3rem;
+}
+
+#checkOpenchat {
+    font-size: 22px;
+    color: #eb6a00;
+    cursor: pointer;
+}
+
+#checkOpenchat i {
+    color: #eb6a00;
+}
+
+#hubspot-sidebar {
+    position: fixed;
+    top: 50px;
+    right: 0;
+    width: 350px;
+    height: 90vh;
+    background-color: rgb(40, 40, 40);
+    display: flex;
+    flex-direction: column;
+    padding: 25px 0 25px 0;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+    z-index: 9999;
+    color: #b3b3b3;
+}
+
+.sideHeader{
+    padding: 0 25px 0 25px;
+    border-bottom: 1px solid #ccc;
+}
+
+.sideContent{ 
+    padding: 25px;
+}
+
+.closerow {
+    display: flex;
+    justify-content: space-between;
+}
+
+.closerow i {
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 20px;
+}
+
+
+.top-message {
+    font-weight: bold;
+    font-size: 14px;
+    text-align: center;
+}
+
+.bottom-message {
+    font-size: 14px;
+    text-align: center;
+    margin-top: auto;
+}
+
+.bottom-message i {
+    margin-right: 5px;
+}
+
 .sidebar-title {
     font-weight: bold;
     font-size: 18px;
@@ -32,10 +127,11 @@
     gap: 10px;
 }
 
+.hubspot-dropdown-footer button,
 #btnwrap-sidebar .right-div button {
-    border: 1px solid #fff;
+    border: 1px solid #b3b3b3;
     background: transparent;
-    color: #fff;
+    color: #b3b3b3;
     padding: 8px 15px;
     cursor: pointer;
     border-radius: 4px;
@@ -89,31 +185,37 @@
     font-size: 14px;
 }
 
-.hubspot-contact-item input[type="checkbox"] {
-    margin-right: 8px;
-    accent-color: #eb6a00;
-    cursor: pointer;
+.hubspot-contact-item span{
+    padding-left: 5px;
 }
+
+.hubspot-contact-item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #eb6a00;
+    border-radius: 50%;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+}
+
+.hubspot-contact-item input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    top: 3px; 
+    left: 3px;
+    width: 8px;
+    height: 8px;
+    background-color: #eb6a00;
+    border-radius: 50%;
+}
+
 .hubspot-dropdown-footer {
     margin-top: 10px;
     display: flex;
     justify-content: flex-end;
-}
-
-.hubspot-dropdown-footer button {
-    border: 1px solid #000;
-    background: transparent;
-    color: #000;
-    padding: 8px 15px;
-    cursor: pointer;
-    border-radius: 4px;
-    font-weight: 500;
-    transition: background 0.2s, color 0.2s;
-}
-
-.hubspot-dropdown-footer button:hover {
-    background-color: #eb6a00;
-    color: #fff;
 }
 
 #hubspotContactDetails {
@@ -231,13 +333,85 @@
 .form-input::placeholder {
     font-size: 10px;
 }
-
+/* 
 #linkBtn, #createBtn {
     padding: 5px 10px;
     margin-left: 5px;
-    color: #fff;
-    border: 1px solid #8b8b8b;
+    color: #b3b3b3;
+    border: 1px solid #b3b3b3;
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
+} */
+
+.meesagelink {
+    padding: 12px 20px;
+    margin-top: 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
+}
+
+.log-button{
+    color: #FFF;
+}
+
+.log-button span{
+    padding-left: 5px;
+}
+
+.modal-header{
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 20px;
+}
+
+.modal .form-group{
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+}
+.modal .form-group .form-label{
+    margin-bottom: 10px;
+}
+
+.save-button {
+    background: #ca5300;
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 32px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.modal-footer{
+    display: flex;
+    justify-content: end;
+    margin-top: 20px;
+}
+
+#btnwrap-sidebar {
+    margin-top: 20px;
+}
+
+.conversation-form .form-row,
+.conversation-snippet-form .form-row{
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.hubspot-dropdown {
+    background: #373636;
+    padding: 12px;
+    border-radius: 15px;
+}
+
+.hubspot-contacts-wrapper{
+    max-height: 80px;
+    overflow-y: scroll;
+    margin-top: 20px;
 }
