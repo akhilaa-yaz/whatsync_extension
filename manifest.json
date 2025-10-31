@@ -27,7 +27,9 @@
   },
   "web_accessible_resources": [
   {
-    "resources": ["hubspot.css"],
+    "resources": ["fonts/css/*.css",
+        "fonts/webfonts/*",
+        "hubspot.css"],
     "matches": ["https://web.whatsapp.com/*"]
   }
 ]

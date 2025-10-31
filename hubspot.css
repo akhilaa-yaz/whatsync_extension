@@ -13,7 +13,7 @@ div#main{
     width: 100vw;
     height: 50px;
     overflow: hidden;
-    background-color: rgb(40, 40, 40);
+    background-color: var(--WDS-background-wash-inset);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -26,8 +26,8 @@ div#main{
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    width: 100%;
     height: 100%;
+    width: 40%;
     padding: 3rem;
 }
 
@@ -47,13 +47,13 @@ div#main{
     right: 0;
     width: 350px;
     height: 90vh;
-    background-color: rgb(40, 40, 40);
+    background-color: #1f2629;
     display: flex;
     flex-direction: column;
     padding: 25px 0 25px 0;
     box-shadow: -2px 0 5px rgba(0,0,0,0.1);
     z-index: 9999;
-    color: #b3b3b3;
+    color: #fff;
 }
 
 .sideHeader{
@@ -62,7 +62,7 @@ div#main{
 }
 
 .sideContent{ 
-    padding: 25px;
+    padding: 25px 12px;
 }
 
 .closerow {
@@ -141,14 +141,14 @@ div#main{
 }
 
 #contactsDropdown {
-    background: #fff;
+    background: #2e3638;
     color: #000;
-    border: 1px solid #ddd;
     box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     padding: 10px;
     margin-top: 10px;
+    margin-bottom: 35px;
     border-radius: 8px;
-    max-height: 300px;
+    max-height: 350px;
     overflow-y: auto;
     font-family: system-ui, sans-serif;
     transition: all 0.3s ease;
@@ -194,7 +194,7 @@ div#main{
     -webkit-appearance: none;
     width: 18px;
     height: 18px;
-    border: 2px solid #eb6a00;
+    border: 2px solid #ccc;
     border-radius: 50%;
     outline: none;
     cursor: pointer;
@@ -208,7 +208,7 @@ div#main{
     left: 3px;
     width: 8px;
     height: 8px;
-    background-color: #eb6a00;
+    background-color: #ccc;
     border-radius: 50%;
 }
 
@@ -234,25 +234,30 @@ div#main{
 
 .col-left, .col-right {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    gap: 3px;
 }
 
 .col-right.justify-content-end {
     display: flex;
-    justify-content: flex-end;
-    align-items: center;
+    justify-content: end;
+    align-items: end;
     cursor: pointer;
+    flex-direction: row;
 }
 
 .label {
     font-weight: bold;
     margin-bottom: 4px;
     font-size: 12px;
-    color: #555;
+    color: #ccc;
 }
 
 .value {
     font-size: 14px;
-    color: #000;
+    color: #fff;
 }
 
 .unlink-contact-row {
@@ -262,16 +267,14 @@ div#main{
 }
 
 .unlink-contact-row .unlink-text {
-    color: #eb6a00;
+    color: #3ca224;
     font-weight: 500;
     text-decoration: none;
     display: block;
     margin-top: 4px;
+    font-size: 12px
 }
 
-.unlink-contact-row:hover .unlink-text {
-    color: #ff8c42;
-}
 
 .create-contact-form {
     display: flex;
@@ -306,7 +309,7 @@ div#main{
 }
 
 .form-input:focus {
-    border-color: #bdbdbd;
+    border-color: #929cff;
 }
 
 .form-btn-row {
@@ -316,7 +319,7 @@ div#main{
 }
 
 .form-create-btn {
-    background-color: #eb6a00;
+    background-color: #929cff;
     color: #fff;
     border: none;
     border-radius: 8px;
@@ -327,7 +330,7 @@ div#main{
 }
 
 .form-create-btn:hover {
-    background-color: #d85f00;
+    background-color: #929cff;
 }
 
 .form-input::placeholder {
@@ -344,14 +347,26 @@ div#main{
     font-size: 14px;
 } */
 
-.meesagelink {
-    padding: 12px 20px;
-    margin-top: 25px;
+.section-block {
+    padding: 16px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-top: 1px solid #ccc;
-    border-bottom: 1px solid #ccc;
+    border-top: 1px solid #616161;
+}
+
+.section-row{
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    cursor: pointer;
+}
+
+.section-title{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 3px;
 }
 
 .log-button{
@@ -378,7 +393,7 @@ div#main{
 }
 
 .save-button {
-    background: #ca5300;
+    background: #929cff;
     color: #ffffff;
     border: none;
     border-radius: 20px;
@@ -405,7 +420,7 @@ div#main{
 }
 
 .hubspot-dropdown {
-    background: #373636;
+    background: #2a3236;
     padding: 12px;
     border-radius: 15px;
 }
@@ -414,4 +429,144 @@ div#main{
     max-height: 80px;
     overflow-y: scroll;
     margin-top: 20px;
+}
+
+.nav-wrapper{
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0 5rem;
+}
+
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 60%;
+}
+
+.nav-inner .toolbar{
+    width: auto;
+}
+
+.toolbar-item{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    height: 50px;
+    padding: 0 10px;
+    gap: 5px;
+    color: #ccc;
+}
+
+.toolbar-item .text{
+    font-size: 16px;
+}
+
+.toolbar-item.active{
+    border-bottom: solid 3px #a98dec;
+    color: #a98dec;
+}
+
+.divider {
+    width: 1px;
+    height: 24px;
+    background: #404040;
+}
+
+.add-btn {
+    font-size: 20px;
+}
+
+.hubspot-tooltip {
+    position: absolute;
+    background: #a09d9d;
+    color: white;
+    padding: 8px 10px;
+    width: 10%;
+    border-radius: 4px;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    pointer-events: none;
+    z-index: 10000;
+    opacity: 1;
+    text-align: center;
+    transition: opacity 0.2s ease;
+}
+
+.hubspot-tooltip.show {
+    opacity: 1;
+}
+
+.short-key{
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    border-top: 1px solid #797575ff;
+    padding-top: 4px;
+}
+
+.icon-tab{
+    background-color: #fff;
+    color: #67686bff;
+    padding: 5px;
+}
+
+.chatRight-actions {
+    display: flex;
+    justify-content: space-between;
+    flex-direction: row;
+    align-content: center;
+    gap: 10px;
+}
+
+.action-tooltip{
+    width: auto;
+}
+
+.action-tooltip .short-key{
+    gap: 5px;
+}
+
+.action-tooltip.close-tooltip .short-key{
+   justify-content: center;
+}
+
+.customPrefix{
+    display: flex;
+    align-items: center;
+    padding-right: 5px;
+}
+
+.header-wrapp{
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.hubspot-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    font-size: 14px;
+    color: #555;
+}
+
+.hubspot-loader .loader-spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #555;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
