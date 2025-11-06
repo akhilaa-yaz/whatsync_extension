@@ -54,6 +54,7 @@ div#main{
     box-shadow: -2px 0 5px rgba(0,0,0,0.1);
     z-index: 9999;
     color: #fff;
+    overflow-y: scroll;
 }
 
 .sideHeader{
@@ -275,8 +276,7 @@ div#main{
     font-size: 12px
 }
 
-
-.create-contact-form {
+.ticket-form, .deal-form, .create-contact-form {
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -294,6 +294,8 @@ div#main{
     color: #ffff;
     margin-bottom: 4px;
     font-weight: 500;
+    text-align: left;
+    padding-bottom: 10px;
 }
 
 .form-input {
@@ -569,4 +571,45 @@ div#main{
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+#note-textarea{
+    width:95%; 
+    height:150px; 
+    padding:10px; 
+    border-radius:5px; 
+    border:1px solid #ccc;
+}
+
+.notes-container {
+    padding: 8px 35px;
+    border-top: 1px solid #ccc;
+    font-size: 14px;
+}
+
+.note-item {
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+}
+
+.note-text, .note-time{
+    font-size: 14px;
+}
+
+#priority option {
+    font-size: 10px;
+}
+
+#priority {
+    font-size: 10px;
+}
+
+.deal-item{
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
 }
