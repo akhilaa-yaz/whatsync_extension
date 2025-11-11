@@ -1,3 +1,5 @@
+const supabaseClient = supabase.createClient('https://qujfpvcubsfzudcdcums.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1amZwdmN1YnNmenVkY2RjdW1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI0MTQ2MzAsImV4cCI6MjA3Nzk5MDYzMH0.WBjsOwWsTnw9Ecv2vFRm0dbIkgMeFacwg5L4KNp33zw');
+
 function addHubspotNavbar(){
     const appRoot = document.getElementById("app") || document.querySelector("#app");
     if (appRoot && !document.getElementById("hubspot-navbar")) {
@@ -29,15 +31,6 @@ function addHubspotNavbar(){
                     <li class="snoozed toolbar-item">
                         <span class="icon">&#128337;</span>
                         <span class="text">Snoozed</span>
-                    </li>
-                    
-                    <li class="followUp toolbar-item">
-                        <span class="icon">&#128203;</span>
-                        <span class="text">Follow Up</span>
-                    </li>
-                    <div class="divider"></div>        
-                    <li class="addItem toolbar-item add-btn">
-                        <span><i class="fa-solid fa-plus" style="color: #ffffff;"></i></span>
                     </li>
                 </ul>
                 <div class="nav-inner">
@@ -79,6 +72,11 @@ function addHubspotNavbar(){
                 sidebar.innerHTML = `
                     <div class="sideHeader">
                         <div class="closerow">
+                            <span style="cursor:pointer" class="backIcon" title="Go Back">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="15 18 9 12 15 6"></polyline>
+                                </svg>
+                            </span>
                             <span class="sidebar-title">HubSpot Integration</span>
                             <div class="header-wrapp">
                                 <span style="cursor:pointer">
@@ -130,8 +128,7 @@ function addHubspotNavbar(){
                     }
                 }
                 fetchContacts(content, sideContent, maindiv);
-            }
-            
+            }    
         });
     }    
 }
@@ -140,7 +137,7 @@ function fetchContacts(normalizedPhone, sideContent, chatArea) {
     const content = normalizedPhone.replace(/\s+/g, "-");
     chrome.runtime.sendMessage({ action: "fetchContacts", data: content }, (res) => {
         const contacts = res?.contacts || [];
-        if (!res?.success) return console.error(res?.error);       
+        if (!res?.success) return console.error(res?.error);  
 
         if (!contacts.length) {
             renderLinkOrCreateUI(sideContent, content, chatArea);
@@ -155,9 +152,9 @@ function fetchContacts(normalizedPhone, sideContent, chatArea) {
                     jobtitle: c.properties?.jobtitle || null,
                     hs_lead_status: c.properties?.hs_lead_status || "-",
                     lifecyclestage: c.properties?.lifecyclestage || "-",
-                    phone: c.properties?.phone || null,
-                    ownerName: c.properties?.ownerName || "-"
+                    phone: c.properties?.phone || null
                 },
+                ownerName: c.ownerName || "-",
                 createdAt: c.createdAt,
                 updatedAt: c.updatedAt,
                 archived: c.archived,
@@ -350,7 +347,6 @@ function saveNewContact(form, sideContent, chatArea) {
     });
 }
 
-
 // Linked contact showing
 function renderHubspotContact(contact, sideContent = '', chatArea) {
     const props = contact.properties;
@@ -365,11 +361,6 @@ function renderHubspotContact(contact, sideContent = '', chatArea) {
                 <div class="col-left">
                     <div class="label"></div>
                     <div class="value">${name} <i class="fa-brands fa-hubspot fa-lg" style="color:#eb6a00"></i></div>
-                </div>
-                <div class="col-right justify-content-end label">
-                    <span style="padding-right: 3px"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M10.5 1.5c.3-.3.3-.8 0-1.1-.3-.3-.8-.3-1.1 0l-1 1 1.1 1.1 1-1zM7.8 2.2L1.5 8.5V10h1.5l6.3-6.3-1.5-1.5z" fill="currentColor"/>
-                    </svg></span> Edit
                 </div>
             </div>
 
@@ -489,12 +480,13 @@ function renderHubspotContact(contact, sideContent = '', chatArea) {
                 }
             });
         } 
-        else if (className === "notes-link" && newElement) { //fetch notes
+        else if (className === "notes-link" && newElement) {
             const sectionTitle = newElement.querySelector('.section-title');
             if (sectionTitle) {
                 if (className === "notes-link" && newElement) {
                     sectionTitle.addEventListener('click', () => {
                         const { notesContainer, loader } = getOrCreateNotesContainer(newElement);
+                        notesContainer.innerHTML = '';
                         chrome.runtime.sendMessage({ action: "fetchNotesFromHubspot", contactId }, (response) => {
                             if (loader) loader.remove();
                             if (response?.success) {
@@ -517,6 +509,7 @@ function renderHubspotContact(contact, sideContent = '', chatArea) {
                                 }).join('');
 
                                 notesContainer.innerHTML = `<div class="notes-display">${notesHtml}</div>`;
+                                notesContainer.dataset.loaded = "true";
                             } else {
                                 console.error("Failed to fetch notes:", response?.error);
                                 notesContainer.innerHTML = '<div class="error">Error loading notes</div>';
@@ -561,7 +554,10 @@ function renderHubspotContact(contact, sideContent = '', chatArea) {
                             (response) => {
                                 if (response?.success) {
                                     loader.remove();
-                                    console.log("Note saved successfully:", response.data);
+                                    const contactData = response.data.contact || response.data[0];
+                                    if (contactData) {
+                                        renderHubspotContact(contactData, sideContent, chatArea);
+                                    }
                                 } else {
                                     console.error("Failed to save note:", response?.error);
                                     setTimeout(() => {
@@ -578,47 +574,96 @@ function renderHubspotContact(contact, sideContent = '', chatArea) {
             if (sectionTitle) {
                 if (className === "deals-link" && newElement) {
                     sectionTitle.addEventListener('click', () => {
-                        const { notesContainer, loader } = getOrCreateNotesContainer(newElement);
-                        chrome.runtime.sendMessage({ action: "fetchDealsByContact", contactId }, (response) => {
-                            if (loader) loader.remove(); 
 
-                            if (response.success) {
-                                notesContainer.innerHTML = "";
+                        const divcheck = document.querySelector('.deal-item');
+                        if(divcheck){
+                            return
+                        } else {
+                            const { notesContainer, loader } = getOrCreateNotesContainer(newElement);
+                            chrome.runtime.sendMessage({ action: "fetchDealsByContact", contactId }, (response) => {
+                                if (loader) loader.remove(); 
 
-                                response.deals.forEach(deal => {
-                                    const dealDiv = document.createElement("div");
-                                    dealDiv.className = "deal-item";
+                                if (response.success) {
+                                    notesContainer.innerHTML = "";
 
-                                    let closeDateStr = "";
-                                    if (deal.closedate) {
-                                        const dateObj = new Date(Number(deal.closedate));
-                                        const options = { year: 'numeric', month: 'short', day: 'numeric' };
-                                        closeDateStr = dateObj.toLocaleDateString(undefined, options);
-                                    }
+                                    response.deals.forEach(deal => {
+                                        const dealDiv = document.createElement("div");
+                                        dealDiv.className = "deal-item";
 
-                                    dealDiv.innerHTML = `
-                                        <span class="deal-name">${deal.dealname || "Unnamed Deal"}</span>
-                                        <p class="deal-amount">Amount: ${deal.amount || "-"}</p>
-                                        <p class="deal-date">Close Date: ${closeDateStr || "-"}</p>
-                                    `;
-                                    notesContainer.appendChild(dealDiv);
-                                });
-                            } else {
-                                console.error("Failed to fetch deals:", response.error);
-                                notesContainer.innerHTML = "<p style='color:red;'>Failed to load deals.</p>";
-                            }
-                        });
+                                        let closeDateStr = "-";
+                                        if (deal.createdate) {
+                                            const dateObj = new Date(deal.createdate);
+                                            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+                                            closeDateStr = dateObj.toLocaleDateString(undefined, options);
+                                        }
+
+                                        dealDiv.innerHTML = `
+                                            <span class="deal-name">${deal.dealname || "Unnamed Deal"}</span>
+                                            <p class="deal-amount">Amount: ${deal.amount || "-"}</p>
+                                            <p class="deal-date">Close Date: ${closeDateStr || "-"}</p>
+                                        `;
+                                        notesContainer.appendChild(dealDiv);
+                                    });
+                                } else {
+                                    console.error("Failed to fetch deals:", response.error);
+                                    notesContainer.innerHTML = "<p style='color:red;'>Failed to load deals.</p>";
+                                }
+                            });
+                        }
                     });
                 }
             }
             const logButton = newElement.querySelector('.log-button');
             logButton.addEventListener('click', () => {
-                createDealForm(sideContent, contactId);
+                createDealForm(sideContent, contactId, chatArea);
             });
         } else {
+            const sectionTitle = newElement.querySelector('.section-title');
+            if (sectionTitle) {
+                if (className === "tickets-link" && newElement) {
+                    sectionTitle.addEventListener('click', () => {
+                        const divcheck = document.querySelector('.ticket-item');
+                        if(divcheck){
+                            console.log("Tickets already loaded");
+                        } else {
+                            const { notesContainer, loader } = getOrCreateNotesContainer(newElement);
+                            chrome.runtime.sendMessage({ action: "fetchTicketsByContact", contactId }, (response) => {
+                                if (response.success) {
+                                if (loader) loader.remove(); 
+                                    notesContainer.innerHTML = "";
+
+                                    response.tickets.forEach(ticket => {
+                                        const ticketDiv = document.createElement("div");
+                                        ticketDiv.className = "ticket-item";
+
+                                        let createDateStr = "-";
+                                        if (ticket.createdate) {
+                                            const dateObj = new Date(ticket.createdate);
+                                            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+                                            createDateStr = dateObj.toLocaleDateString(undefined, options);
+                                        }
+
+
+                                        ticketDiv.innerHTML = `
+                                            <span class="ticket-subject">${ticket.subject || "No Subject"}</span>
+                                            <p class="ticket-status">Status: ${ticket.hs_pipeline_stage || "-"}</p>
+                                            <p class="ticket-date">Created On: ${createDateStr}</p>
+                                        `;
+                                        notesContainer.appendChild(ticketDiv);
+                                    });
+
+                                } else {
+                                    console.error("Failed to fetch tickets:", response.error);
+                                    notesContainer.innerHTML = "<p style='color:red;'>Failed to load tickets.</p>";
+                                }
+                            });
+                        }
+                    });
+                }
+            }
             const logButton = newElement.querySelector('.log-button');
             logButton.addEventListener('click', () => {
-                createTicketForm(sideContent, contactId);
+                createTicketForm(sideContent, contactId, chatArea);
             });
         }       
     });
@@ -633,125 +678,144 @@ function renderHubspotContact(contact, sideContent = '', chatArea) {
     });
 }
 
-function createTicketForm(container, Selcontact) {
-    container.innerHTML = "";
-    container.innerHTML = `
+function createTicketForm(sideContent, Selcontact, chatArea) {
+    sideContent.innerHTML = `
         <div class="ticket-form">
             <div class="form-field form-row">
                 <label for="ticket-name" class="form-label">Ticket Name</label>
                 <input type="text" class="form-input" id="ticket-name" />
             </div>
-            <div class="form-row">
+
+            <div class="form-row dropdown-container">
                 <label for="ticket-pipeline" class="form-label">Pipeline</label>
                 <select id="ticket-pipeline" class="form-input">
-                    <option>Loading...</option>
+                <option value="0" selected>Support Pipeline</option>
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
-            <div class="form-row">
+
+            <div class="form-row dropdown-container">
                 <label for="ticket-status" class="form-label">Ticket Status</label>
                 <select id="ticket-status" class="form-input">
-                    <option>Loading...</option>
+                    <option value="1" selected>New</option>
+                    <option value="2" selected>Waiting on contact</option>
+                    <option value="3" selected>Waiting on us</option>
+                    <option value="4" selected>Closed</option>
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
+
             <div class="form-row">
                 <label for="ticket-description" class="form-label">Description</label>
                 <textarea id="ticket-description" class="form-input"></textarea>
             </div>
-            <div class="form-row">
+
+            <div class="form-row dropdown-container">
                 <label for="ticket-source" class="form-label">Source</label>
                 <select id="ticket-source" class="form-input">
-                    <option>Loading...</option>
+                    <option value="CHAT" selected>Chat</option>
+                    <option value="EMAIL" selected>Email</option>
+                    <option value="FORM" selected>Form</option>
+                    <option value="PHONE" selected>Phone</option>   
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
-            <div class="form-row">
+
+            <div class="form-row dropdown-container">
                 <label for="ticket-owner" class="form-label">Ticket Owner</label>
                 <select id="ticket-owner" class="form-input">
                     <option>Loading...</option>
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
-            <div class="form-row">
+
+            <div class="form-row dropdown-container">
                 <label for="ticket-priority" class="form-label">Priority</label>
                 <select id="ticket-priority" class="form-input">
-                    <option value="low">🟢 Low</option>
-                    <option value="medium">🟡 Medium</option>
-                    <option value="high">🔴 High</option>
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM" selected>Medium</option>
+                    <option value="HIGH">High</option>
+                    <option value="URGENT">Urgent</option>
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
+
             <div class="form-row">
                 <label for="ticket-create-date" class="form-label">Create Date</label>
                 <input type="date" class="form-input" id="ticket-create-date" />
             </div>
+
             <div class="form-footer">
                 <button id="create-ticket-btn" class="save-button">Create</button>
             </div>
         </div>
     `;
 
-    const createDateInput = container.querySelector("#ticket-create-date");
-    const today = new Date();
-    createDateInput.value = today.toISOString().split("T")[0];
+    // Default date
+    sideContent.querySelector("#ticket-create-date").value = new Date().toISOString().split("T")[0];
 
-    const pipelineSelect = container.querySelector("#ticket-pipeline");
-    const statusSelect = container.querySelector("#ticket-status");
-    const sourceSelect = container.querySelector("#ticket-source");
-    const ownerSelect = container.querySelector("#ticket-owner");
+    // Dropdown elements
+    const ownerSelect = sideContent.querySelector("#ticket-owner");
 
-    function populateDropdown(selectEl, action, mapFn, extraData = {}) {
-        selectEl.innerHTML = "<option>Loading...</option>";
-        chrome.runtime.sendMessage({ action, ...extraData }, (response) => {
-            if (response.success) {
-                const items = Object.values(response).find(Array.isArray);
-                if (!items || !items.length) {
-                    selectEl.innerHTML = "<option>No data found</option>";
-                    return;
-                }
-                selectEl.innerHTML = "";
-                items.forEach(item => {
-                    const { value, label } = mapFn(item);
-                    const opt = document.createElement("option");
-                    opt.value = value;
-                    opt.textContent = label;
-                    selectEl.appendChild(opt);
-                });
-            } else {
-                console.error(`Failed to fetch ${action}:`, response.error);
-                selectEl.innerHTML = "<option>Error loading data</option>";
-            }
-        });
-    }
+    // Populate Owners
+    chrome.runtime.sendMessage({ action: "fetchDealOwners" }, (response) => {
+        if (response?.success && Array.isArray(response.owners || response.options)) {
+            const items = response.owners || response.options;
+            ownerSelect.innerHTML = "";
+            items.forEach(o => {
+                const opt = document.createElement("option");
+                opt.value = o.id;
+                opt.textContent = o.name;
+                ownerSelect.appendChild(opt);
+            });
+        }
+    });
 
-    populateDropdown(pipelineSelect, "fetchHubspotPipelines", p => ({ value: p.id, label: p.name }));
-    populateDropdown(statusSelect, "fetchTicketStatuses", s => ({ value: s.id, label: s.label }));
-    populateDropdown(sourceSelect, "fetchTicketSources", s => ({ value: s.id, label: s.label }));
-    populateDropdown(ownerSelect, "fetchDealOwners", o => ({ value: o.id, label: o.name }));
-
-    const createBtn = container.querySelector("#create-ticket-btn");
-    createBtn.addEventListener("click", () => {
-        const ticketData = {
-            ticketName: container.querySelector("#ticket-name").value.trim(),
-            pipelineId: pipelineSelect.value,
-            statusId: statusSelect.value,
-            description: container.querySelector("#ticket-description").value.trim(),
-            sourceId: sourceSelect.value,
-            ownerId: ownerSelect.value,
-            priority: container.querySelector("#ticket-priority").value,
-            createDate: createDateInput.value,
-            Selcontact
+    // Create button handler
+    sideContent.querySelector("#create-ticket-btn").addEventListener("click", () => {
+        const ticketPayload = {
+            subject: sideContent.querySelector("#ticket-name").value.trim(),
+            content: sideContent.querySelector("#ticket-description").value.trim(),
+            hs_pipeline: sideContent.querySelector("#ticket-pipeline").value,
+            hs_pipeline_stage: sideContent.querySelector("#ticket-status").value,
+            source_type: sideContent.querySelector("#ticket-source").value,
+            hubspot_owner_id: sideContent.querySelector("#ticket-owner").value,
+            hs_ticket_priority: sideContent.querySelector("#ticket-priority").value,
+            createdate: sideContent.querySelector("#ticket-create-date").value + "T00:00:00Z"
         };
-
-        chrome.runtime.sendMessage({ action: "createHubspotTicket", data: ticketData }, (response) => {
-            if (response.success) {
-                const msg = document.createElement("div");
-                msg.textContent = "Ticket created successfully!";
-                msg.style.color = "green";
-                msg.style.marginTop = "10px";
-                container.querySelector(".form-footer").appendChild(msg);
-                setTimeout(() => msg.remove(), 3000);
-            } else {
-                console.error("Failed to create ticket:", response.error);
-                alert("Failed to create ticket. Check console for details.");
+        const contactId = Selcontact;
+        const createBtn = sideContent.querySelector("#create-ticket-btn");
+        const originalText = createBtn.textContent;
+        createBtn.innerHTML = "";
+        const loader = createLoader(createBtn);
+        loader.style.padding = "0";
+        chrome.runtime.sendMessage({action: "createHubspotTicket", data: { ticketPayload, contactId }},
+            (response) => {
+                if (response.success) {
+                    loader.remove();
+                    createBtn.textContent = originalText;
+                    const contactData = response.data.contact || response.data[0];
+                    if (contactData) {
+                        renderHubspotContact(contactData, sideContent, chatArea);
+                    }
+                } else {
+                    console.error("Failed to create ticket:", response.error);
+                    setTimeout(() => {
+                        createBtn.textContent = originalText;
+                    }, 3000);   
+                }
             }
-        });
+        );
     });
 }
 
@@ -765,7 +829,6 @@ function getOrCreateNotesContainer(targetElement) {
     notesContainer.className = 'notes-container';
     targetElement.insertAdjacentElement('afterend', notesContainer);
     const loader = createLoader(notesContainer, "Loading ...");
-
     return { notesContainer, loader };
 }
 
@@ -774,13 +837,14 @@ function formatTimestamp(timestamp) {
     let hours = dateObj.getHours();
     const minutes = dateObj.getMinutes().toString().padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12; // convert 0 to 12
+    hours = hours % 12 || 12;
     const timeStr = `${hours}:${minutes} ${ampm}`;
     const dateStr = dateObj.toLocaleDateString();
     return { timeStr, dateStr };
 }
 
-function createDealForm(container, Selcontact) {
+function createDealForm(container, Selcontact, chatArea) {
+    //Selcontact means the row ID of the table Contact
     container.innerHTML = "";
     container.innerHTML = `
         <div class="deal-form">
@@ -788,17 +852,23 @@ function createDealForm(container, Selcontact) {
                 <label for="deal-name" class="form-label">Deal Name</label>
                 <input type="text" class="form-input" id="deal-name" />
             </div>
-            <div class="form-row">
+            <div class="form-row dropdown-container">
                 <label for="pipeline" class="form-label">Pipeline</label>
                 <select id="pipeline" class="form-input">
                     <option>Loading...</option>
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
-            <div class="form-row">
+            <div class="form-row dropdown-container">
                 <label for="deal-stage" class="form-label">Deal Stage</label>
                 <select id="deal-stage" class="form-input">
                     <option>Loading...</option>
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
             <div class="form-row">
                 <label for="amount" class="form-label">Amount</label>
@@ -808,39 +878,54 @@ function createDealForm(container, Selcontact) {
                 <label for="close-date" class="form-label">Close Date</label>
                 <input type="date" class="form-input" id="close-date" />
             </div>
-            <div class="form-row">
+            <div class="form-row dropdown-container">
                 <label for="deal-owner" class="form-label">Deal Owner</label>
                 <select id="deal-owner" class="form-input">
                     <option>Loading...</option>
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
-            <div class="form-row">
+            <div class="form-row dropdown-container">
                 <label for="deal-type" class="form-label">Deal Type</label>
                 <select id="deal-type" class="form-input">
                     <option>Loading...</option>
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
-            <div class="form-row">
+            <div class="form-row dropdown-container">
                 <label for="priority" class="form-label">Priority</label>
                 <select id="priority" class="form-input">
                     <option value="low">🟢 Low</option>
                     <option value="medium">🟡 Medium</option>
                     <option value="high">🔴 High</option>
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
 
-            <div class="form-row">
+            <div class="form-row dropdown-container">
                 <label for="contact" class="form-label">Contact</label>
                 <select id="contact" class="form-input">
                     <option>Loading...</option>
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
 
-            <div class="form-row">
+            <div class="form-row dropdown-container">
                 <label for="company" class="form-label">Company</label>
                 <select id="company" class="form-input">
                     <option>Loading...</option>
                 </select>
+               <svg class="dropdown-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
 
             <div class="form-footer">
@@ -924,6 +1009,10 @@ function createDealForm(container, Selcontact) {
 
     const createDealBtn = container.querySelector("#create-deal-btn");
     createDealBtn.addEventListener("click", async () => {
+        const originalText = createDealBtn.textContent;
+        createDealBtn.innerHTML = "";
+        const loader = createLoader(createDealBtn);
+        loader.style.padding = "0";
         const pipelineId = container.querySelector("#pipeline").value;
         const stageId = container.querySelector("#deal-stage").value;
         const dealName = container.querySelector("#deal-name").value.trim();
@@ -946,44 +1035,25 @@ function createDealForm(container, Selcontact) {
         if (hasError) return;
 
         // Prepare deal payload
-        const dealData = {
-            dealName,
-            pipelineId,
-            stageId,
-            amount,
-            closeDate, // string yyyy-mm-dd
-            ownerId,
-            dealType,
-            priority,
-            contactId,
-            companyId,
-            Selcontact 
-        };
+        const dealData = {dealName, pipelineId, amount, closeDate, ownerId, dealType, priority, contactId, companyId, Selcontact};
 
         createDealBtn.disabled = true;
         createDealBtn.textContent = "Creating...";
-
         chrome.runtime.sendMessage({ action: "createHubspotDeal", data: dealData }, (response) => {
             createDealBtn.disabled = false;
             createDealBtn.textContent = "Create";
 
             if (response.success) {
-                const msg = document.createElement("div");
-                msg.textContent = "Deal created successfully!";
-                msg.style.color = "green";
-                msg.style.marginTop = "10px";
-                container.querySelector(".form-footer").appendChild(msg);
-                container.querySelectorAll("input, select").forEach(el => {
-                    if (el.tagName === "SELECT") {
-                        el.selectedIndex = 0;
-                    } else {
-                        el.value = "";
-                    }
-                });
-                setTimeout(() => msg.remove(), 3000);
+                loader.remove();
+                const contactData = response.data.contact || response.data[0];
+                if (contactData) {
+                    renderHubspotContact(contactData, container, chatArea);
+                }
             } else {
                 console.error("Failed to create deal:", response.error);
-                alert("Failed to create deal. Check console for details.");
+                setTimeout(() => {
+                    createDealBtn.textContent = originalText;
+                }, 3000);
             }
         });
     });
@@ -1031,12 +1101,21 @@ function createForm({contactId, chatArea, sideContent, messages = [], type = "sn
 
     const syncBtn = sideContent.querySelector("#sync-snippet-btn");
     syncBtn.addEventListener("click", () => {
+        const originalText = syncBtn.textContent;
+        syncBtn.innerHTML = "";
+        const loader = createLoader(syncBtn);
+        loader.style.padding = "0";
         chrome.runtime.sendMessage({ action: "saveWhatsAppMessagesToHubspot", data: { messages, contactId }}, response => {
             if (response?.success) {
+                loader.remove();
                 const contactData = response.data.contact || response.data[0];
                 if (contactData) {
                     renderHubspotContact(contactData, sideContent, chatArea);
                 }
+            } else{
+                setTimeout(() => {
+                    syncBtn.textContent = originalText;
+                }, 3000);
             }
         })
     });
@@ -1084,9 +1163,60 @@ function resetChatTransforms() {
     }
 }
 
+async function saveChatAction(chatNumber, action) {
+    try {
+        const { data: existingData, error: fetchError } = await supabaseClient
+            .from('chat_actions')
+            .select('chat_number, action')
+            .eq('chat_number', chatNumber)
+            .single(); 
+
+        if (fetchError && fetchError.code !== 'PGRST116') {
+            throw fetchError;
+        }
+
+        if (existingData) {
+            if (existingData.action === action) {
+                return; 
+            } else {
+                
+                const { data, error } = await supabaseClient
+                    .from('chat_actions')
+                    .upsert(
+                        { chat_number: chatNumber, action }, 
+                        { onConflict: 'chat_number' } 
+                    )
+                    .select();
+                if (error) console.error('Error saving chat action:', error);
+            }
+        } else {
+            
+            const { data, error } = await supabaseClient
+                .from('chat_actions')
+                .insert([{ chat_number: chatNumber, action }]);
+
+            if (error) throw error;
+        }
+    } catch (err) {
+        console.error('Error saving chat action:', err);
+    }
+}
+
+document.addEventListener('click', (e) => {
+    const chatListDiv = e.target.closest('div[aria-label="Chat list"][role="grid"]');
+
+    if (chatListDiv) {
+        const sidebar = document.getElementById('hubspot-sidebar');
+        if (sidebar) {
+            sidebar.style.display = 'none';
+            widthSetting();
+        }
+    }
+});
+
+
 // Close Icon
 document.body.addEventListener('mousedown', e => {
-
     if (e.target.closest('.closeIcon')) {
         e.stopPropagation();
         const sidebar = document.getElementById('hubspot-sidebar');
@@ -1096,150 +1226,169 @@ document.body.addEventListener('mousedown', e => {
         }
         return;
     }
-    
+
     const actionTarget = e.target.closest('.closeChat, .snoozeChat, .archiveChat, .customPrefix');
     if (!actionTarget) return;
 
     const chatRow = actionTarget.closest('div[role="row"]');
     if (!chatRow) return;
+    const msgSpan = chatRow.querySelector('span[dir="auto"][title]');
+    if (!msgSpan) return;
+    const chatNumber = msgSpan.getAttribute('title') || '';
 
     e.preventDefault();
     e.stopPropagation();
 
     if (actionTarget.classList.contains('closeChat')) {
-        chatRow.dataset.closed = "true";
         chatRow.style.display = "none";
         resetChatTransforms(chatRow);
+        saveChatAction(chatNumber, 'close');
     } else if (actionTarget.classList.contains('snoozeChat')) {
-        chatRow.dataset.snoozed = "true";
         chatRow.style.display = "none";
         resetChatTransforms(chatRow);
+        saveChatAction(chatNumber, 'snooze');
     } else if (actionTarget.classList.contains('archiveChat')) {
         chatRow.setAttribute('role', 'listitem');
         chatRow.style.display = "none";
         resetChatTransforms(chatRow);
+        saveChatAction(chatNumber, 'archive');
     } else if (actionTarget.classList.contains('customPrefix')) {
         const polygon = actionTarget.querySelector('polygon');
-        if (chatRow.dataset.starred === "true") {
-            chatRow.removeAttribute('data-starred');
+        const computedFill = window.getComputedStyle(polygon).getPropertyValue('fill');
+
+        if (computedFill === 'rgb(255, 215, 0)') {
             polygon.setAttribute('fill', 'none');
-            polygon.setAttribute('stroke', 'none');
+            polygon.setAttribute('stroke', 'currentColor');
+            chatRow.style.display = "none";
+            resetChatTransforms(chatRow);
+            saveChatAction(chatNumber, 'nostar');
         } else {
-            chatRow.dataset.starred = "true";
             polygon.setAttribute('fill', 'gold');
             polygon.setAttribute('stroke', 'gold');
             chatRow.style.display = "none";
-            resetChatTransforms(chatRow);            
+            resetChatTransforms(chatRow);
+            saveChatAction(chatNumber, 'star');
         }
     }
+
+    const backBtn = e.target.closest('.backIcon');
+    if (!backBtn) return;
+    const maindiv = document.getElementById("main");
+    const sidebar = document.getElementById("hubspot-sidebar");
+    const sideContent = sidebar.querySelector(".sideContent");
+    const header = maindiv.querySelector("header");
+    if (header && header.children.length >= 2) {
+        const secondChild = header.children[1];
+        const span = secondChild.querySelector('span[dir="auto"]');
+        if (span) {
+            content = span.innerHTML;
+        }
+    }
+    fetchContacts(content, sideContent, maindiv);
 });
 
 //Tooltips for icons
 const actionTitles = {
-    closeChat: { title: 'Close Chat', keys: ['Ctrl', 'C'], showNextTab: false },
+    closeChat: { title: 'Close Chat', keys: [], showNextTab: false },
     snoozeChat: { title: 'Snooze', keys: [], showNextTab: false },
-    archiveChat: { title: 'Archive', keys: ['⌘', 'Ctrl', 'Shift', 'E'], showNextTab: false }
+    archiveChat: { title: 'Archive', keys: [], showNextTab: false }
 };
 
 const toolbarTitles = {
-    inbox: { title: 'Inbox (37 chats)', keys: ['⌘', 'Ctrl', '→'], showNextTab: true },
-    starred: { title: 'Starred (0 chats)', keys: ['⌘', 'Ctrl', '→'], showNextTab: true },
-    unread: { title: 'Unopened chats (5 chats)', keys: ['⌘', 'Ctrl', '→'], showNextTab: true },
-    closed: { title: 'Chats you have closed (12 chats)', keys: ['⌘', 'Ctrl', '→'], showNextTab: true },
-    snoozed: { title: 'Snoozed (2 chats)', keys: ['⌘', 'Ctrl', '→'], showNextTab: true },
-    followUp: { title: 'Follow Up (3 chats)', keys: ['⌘', 'Ctrl', '→'], showNextTab: true },
-    addItem: { title: 'New custom tab', keys: [], showNextTab: false }
+    inbox: { title: 'Inbox', keys: ['⌘', 'Ctrl', '→'], showNextTab: true },
+    starred: { title: 'Starred', keys: ['⌘', 'Ctrl', '→'], showNextTab: true },
+    unread: { title: 'Unopened chats', keys: ['⌘', 'Ctrl', '→'], showNextTab: true },
+    closed: { title: 'Chats you have closed', keys: ['⌘', 'Ctrl', '→'], showNextTab: true },
+    snoozed: { title: 'Snoozed', keys: ['⌘', 'Ctrl', '→'], showNextTab: true }
 };
 
 let activeTooltip = null;
 
 document.addEventListener('mouseover', e => {
-    const li = e.target.closest('li.inbox, li.starred, li.unread, li.closed, li.snoozed, li.followUp, li.addItem');
+    // ---------- TOOLTIP LOGIC ----------
+    const li = e.target.closest('li.inbox, li.starred, li.unread, li.closed, li.snoozed');
     const action = e.target.closest('.closeChat, .snoozeChat, .archiveChat');
-    if (!li && !action) return;
+    if (li || action) {
+        activeTooltip?.remove();
 
-    activeTooltip?.remove();
+        const { title, keys, showNextTab } = li
+            ? toolbarTitles[Object.keys(toolbarTitles).find(k => li.classList.contains(k))]
+            : actionTitles[Object.keys(actionTitles).find(k => action.classList.contains(k))];
 
-    const { title, keys, showNextTab } = li
-        ? toolbarTitles[Object.keys(toolbarTitles).find(k => li.classList.contains(k))]
-        : actionTitles[Object.keys(actionTitles).find(k => action.classList.contains(k))];
+        const tooltip = document.createElement('div');
+        tooltip.className = 'hubspot-tooltip';
+        if (action) tooltip.classList.add('action-tooltip');
+        if (action && action.classList.contains('closeChat')) tooltip.classList.add('close-tooltip');
 
-    const tooltip = document.createElement('div');
-    tooltip.className = 'hubspot-tooltip';
-    if (action) tooltip.classList.add('action-tooltip');
-    if (action && action.classList.contains('closeChat')) {
-        tooltip.classList.add('close-tooltip');
+        tooltip.innerHTML = `<div>${title}</div>`;
+
+        if (showNextTab || keys.length) {
+            const keysRow = document.createElement('div');
+            keysRow.className = 'short-key';
+            if (showNextTab) keysRow.appendChild(Object.assign(document.createElement('div'), { textContent: 'Next tab' }));
+            keys.forEach(k => keysRow.appendChild(Object.assign(document.createElement('span'), { className: 'icon-tab', textContent: k })));
+            tooltip.appendChild(keysRow);
+        }
+
+        document.body.appendChild(tooltip);
+        activeTooltip = tooltip;
+
+        const target = li || action;
+        const { bottom, left } = target.getBoundingClientRect();
+        tooltip.classList.add('show');
+        Object.assign(tooltip.style, { top: `${bottom + window.scrollY + 6}px`, left: `${left + window.scrollX}px` });
+
+        target.addEventListener('mouseleave', () => {
+            tooltip.classList.remove('show');
+            setTimeout(() => { tooltip.remove(); activeTooltip = null; }, 200);
+        }, { once: true });
     }
-    tooltip.innerHTML = `<div>${title}</div>`;
 
-    if (showNextTab || keys.length) {
-        const keysRow = document.createElement('div');
-        keysRow.className = 'short-key';
-        if (showNextTab) keysRow.appendChild(Object.assign(document.createElement('div'), { textContent: 'Next tab' }));
-        keys.forEach(k => keysRow.appendChild(Object.assign(document.createElement('span'), { className: 'icon-tab', textContent: k })));
-        tooltip.appendChild(keysRow);
-    }
-
-    document.body.appendChild(tooltip);
-    activeTooltip = tooltip;
-
-    const target = li || action;
-    const { bottom, left } = target.getBoundingClientRect();
-    tooltip.classList.add('show');
-    Object.assign(tooltip.style, { top: `${bottom + window.scrollY + 6}px`, left: `${left + window.scrollX}px` });
-
-    target.addEventListener('mouseleave', () => {
-        tooltip.classList.remove('show');
-        setTimeout(() => { tooltip.remove(); activeTooltip = null; }, 200);
-    }, { once: true });
-});
-
-//3 icons on the right side of each chats
-document.addEventListener('mouseover', e => {
+    // ---------- CHAT RIGHT ACTIONS LOGIC ----------
     const cell = e.target.closest('div[role="gridcell"].x1n2onr6');
-    if (!cell) return;
+    if (cell) {
+        const ts = cell.querySelector('div._ak8i');
+        if (!ts || ts.dataset.orig) return;
 
-    const ts = cell.querySelector('div._ak8i');
-    if (!ts || ts.dataset.orig) return;
-
-    ts.dataset.orig = ts.innerHTML;
-    ts.style.transition = 'opacity 0.2s';
-    ts.style.opacity = 0;
-
-    setTimeout(() => {
-        ts.innerHTML = `
-        <div class="chatRight-actions" style="display:flex; justify-content: center;">
-            <span class="closeChat">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-            </span>
-            <span class="snoozeChat">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-            </span>
-            <span class="archiveChat">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
-                    <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
-                </svg>
-            </span>
-        </div>
-        `;
-    }, 200);
-
-    setTimeout(() => ts.style.opacity = 1, 200);
-
-    cell.addEventListener('mouseleave', () => {
+        ts.dataset.orig = ts.innerHTML;
+        ts.style.transition = 'opacity 0.2s';
         ts.style.opacity = 0;
+
         setTimeout(() => {
-            ts.innerHTML = ts.dataset.orig;
-            ts.style.opacity = 1;
-            delete ts.dataset.orig;
+            ts.innerHTML = `
+            <div class="chatRight-actions" style="display:flex; justify-content: center;">
+                <span class="closeChat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </span>
+                <span class="snoozeChat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </span>
+                <span class="archiveChat">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+                        <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+                    </svg>
+                </span>
+            </div>
+            `;
         }, 200);
-    }, { once: true });
+
+        setTimeout(() => ts.style.opacity = 1, 200);
+
+        cell.addEventListener('mouseleave', () => {
+            ts.style.opacity = 0;
+            setTimeout(() => {
+                ts.innerHTML = ts.dataset.orig;
+                ts.style.opacity = 1;
+                delete ts.dataset.orig;
+            }, 200);
+        }, { once: true });
+    }
 });
 
 //tab switching by keys
@@ -1255,29 +1404,6 @@ document.addEventListener('keydown', e => {
         filterChatsByTab(i);
     }
 });
-
-//inbox count
-async function logChatListDiv() {
-    // const pane = document.querySelector("#pane-side");
-    // if (!pane) return 0;
-
-    // let lastScrollTop = -1;
-    // let scrollAttempts = 0;
-
-    // while (pane.scrollTop !== lastScrollTop && scrollAttempts < 50) {
-    //     lastScrollTop = pane.scrollTop;
-    //     pane.scrollTop = pane.scrollHeight; // scroll to bottom
-    //     await new Promise(resolve => setTimeout(resolve, 500)); // wait for chats to load
-    //     scrollAttempts++;
-    // }
-
-    // // Now all chats should be rendered
-    // const allChats = pane.querySelectorAll('div[role="row"]');
-    // console.log("Total chats:", allChats.length);
-    // return allChats.length;
-
-}
-
 
 // Grab all tabs
 function observeTabs() {
@@ -1299,47 +1425,117 @@ function observeTabs() {
 
 let unreadObserverInitialized = false;
 
-function filterChatsByTab(idx) {
+async function filterChatsByTab(idx) {
     const chatList = document.querySelector('div[role="grid"]');
     if (!chatList) return;
 
-    const chats = chatList.querySelectorAll('div[role="row"]');
+    const chats = Array.from(chatList.querySelectorAll('div[role="row"]'));
     chats.forEach(chat => chat.style.display = "none");
 
-    switch(idx) {
-        case 0: // Inbox
-            chats.forEach(c => {
-                if (c.dataset.closed !== "true" && c.dataset.snoozed !== "true" && c.dataset.starred !== "true")
-                    c.style.display = "block";
+    const showChatsByNumbers = (numbers) => {
+        chats.forEach(chat => {
+            const chatNumber = chat.querySelector('span[dir="auto"][title]')?.getAttribute('title').trim();
+            if (chatNumber && numbers.includes(chatNumber)) {
+                chat.style.display = "block";
+            } else {
+                chat.style.display = "none";
+            }
+        });
+    };
+
+    try {
+        switch(idx) {
+            case 0:
+            const { data: starData, error: starError } = await supabaseClient
+                .from('chat_actions')
+                .select('chat_number')
+                .in('action', ['star', 'closed', 'snooze']);
+
+            if (starError) throw starError;
+            const excludedNumbers = starData.map(c => c.chat_number);
+            chats.forEach(chat => {
+                const phone = chat
+                    .querySelector('span[dir="auto"][title]')
+                    ?.getAttribute('title')
+                    ?.trim();
+
+                if (!phone) return;
+
+                if (!excludedNumbers.includes(phone)) {
+                    chat.style.display = "block";
+                } else {
+                    chat.style.display = "none";
+                }
+                const starSvg = chat.querySelector('svg');
+                if (starSvg && excludedNumbers.includes(phone)) {
+                    if (starData.find(d => d.chat_number === phone && d.action === 'star')) {
+                        starSvg.setAttribute('fill', 'gold');
+                        starSvg.setAttribute('stroke', 'gold');
+                    }
+                }
             });
             break;
-        case 1: // Starred
-            chats.forEach(c => { if (c.dataset.starred === "true") c.style.display = "block"; });
-            break;
-        case 2: // Unread
-            if (!unreadObserverInitialized) {
-                observeUnreadChats();
-                unreadObserverInitialized = true;
-            }
-            break;
-        case 3: // Closed
-            chats.forEach(c => { if (c.dataset.closed === "true") c.style.display = "block"; });
-            break;
-        case 4: // Snoozed
-            chats.forEach(c => { if (c.dataset.snoozed === "true") c.style.display = "block"; });
-            break;
+            case 1: // Starred
+                {
+                    const { data, error } = await supabaseClient
+                        .from('chat_actions')
+                        .select('chat_number')
+                        .eq('action', 'star');
+                    if (error) throw error;
+
+                    const starredNumbers = data.map(c => c.chat_number);
+                    showChatsByNumbers(starredNumbers);
+                    chats.forEach(chat => {
+                        if (chat.style.display !== "none") {
+                            const starSvg = chat.querySelector('svg');
+                            if (starSvg) {
+                                starSvg.setAttribute('fill', 'gold');
+                                starSvg.setAttribute('stroke', 'gold');
+                            }
+                        }
+                    });
+                }
+                break;
+
+            case 2: // Unread
+                if (!unreadObserverInitialized) {
+                    observeUnreadChats();
+                    unreadObserverInitialized = true;
+                }
+                break;
+
+            case 3: // Closed
+                {
+                    const { data, error } = await supabaseClient
+                        .from('chat_actions')
+                        .select('chat_number')
+                        .eq('action', 'close');
+                    if (error) throw error;
+
+                    const closedNumbers = data.map(c => c.chat_number);
+                    showChatsByNumbers(closedNumbers);
+                }
+                break;
+
+            case 4: // Snoozed
+                {
+                    const { data, error } = await supabaseClient
+                        .from('chat_actions')
+                        .select('chat_number')
+                        .eq('action', 'snooze');
+                    if (error) throw error;
+
+                    const snoozedNumbers = data.map(c => c.chat_number);
+                    showChatsByNumbers(snoozedNumbers);
+                }
+                break;
+        }
+    } catch (err) {
+        console.error("Error fetching chats:", err);
     }
 
-    arrangeVisibleChats();
-}
-
-function arrangeVisibleChats() {
-    const chatList = document.querySelector('div[role="grid"]');
-    if (!chatList) return;
-
     let offset = 0;
-    const rows = Array.from(chatList.querySelectorAll('div[role="row"]'));
-    rows.forEach(row => {
+    chats.forEach(row => {
         if (row.style.display !== "none") {
             row.style.transition = 'transform 0.2s';
             row.style.transform = `translateY(${offset}px)`;
@@ -1388,10 +1584,21 @@ function observeUnreadChats() {
     observer.observe(chatList, { childList: true, subtree: true });
 }
 
-function addPrefix() {
+async function addPrefix() {
+
+    const { data, error } = await supabaseClient
+        .from('chat_actions')
+        .select('chat_number')
+        .in('action', ['star', 'closed', 'snooze']);
+    if (error) throw error;
+
+    const starredNumbers = data.map(c => c.chat_number);
+    const chatRows = [];
+
     document.querySelectorAll('div[role="gridcell"] span[title][dir="auto"]').forEach(span => {
         if (span.previousSibling?.classList?.contains('customPrefix')) return;
 
+        const phone = span.getAttribute('title')?.trim();
         const p = document.createElement('span');
         p.className = 'customPrefix';
         p.innerHTML = `
@@ -1401,9 +1608,24 @@ function addPrefix() {
         `;
         span.parentNode.insertBefore(p, span);
 
+
         const chatRow = span.closest('div[role="row"]');
         if (!chatRow || chatRow.dataset.starredListenerAttached) return;
         chatRow.dataset.starredListenerAttached = "true";
+
+        if (starredNumbers.includes(phone)) {
+            chatRow.style.display = "none";
+        } else {
+            chatRows.push(chatRow);
+        }
+
+    });
+
+    let offset = 0;
+    chatRows.forEach(row => {
+        row.style.transition = 'transform 0.2s';
+        row.style.transform = `translateY(${offset}px)`;
+        offset += row.offsetHeight;
     });
 }
 
@@ -1422,7 +1644,6 @@ const observerNew = new MutationObserver(() => {
     const chatContainer = document.querySelector('div[role="grid"]');
     if (!chatContainer) return;
     addHubspotNavbar();
-    logChatListDiv();
     observeTabs();
     const cssFiles = [
         chrome.runtime.getURL("fonts/css/all.min.css"),

@@ -40,10 +40,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     return await handleCreateHubspotDeal(request.data, sendResponse);
                 case "fetchDealsByContact":
                     return await handleFetchDealsByContact(request.contactId, sendResponse);
-                case "fetchTicketStatuses":
-                    return await handleFetchTicketStatuses(sendResponse);
-                case "fetchTicketSources":
-                    return await handleFetchTicketSources(sendResponse);
+                case "createHubspotTicket":
+                    return await handleCreateHubspotTicket(request.data, sendResponse);
+                case "fetchTicketsByContact":
+                    return await handleFetchTicketsByContact(request.contactId, sendResponse);
                 default:
                     return sendResponse({ success: false, error: 'Unknown action' });
             }
@@ -59,35 +59,116 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function getConfig() {
     return new Promise(resolve => chrome.storage.sync.get(['hubspotApiKey'], resolve));
 }
-
-async function handleFetchTicketStatuses(sendResponse) {
+async function handleFetchTicketsByContact(contactId, sendResponse) {
     try {
+        // Get HubSpot API key
         const { hubspotApiKey: apiKey } = await getConfig();
-        const res = await fetch("https://api.hubapi.com/crm/v3/properties/tickets/status", {
-            headers: { "Authorization": `Bearer ${apiKey}` }
-        });
-        if (!res.ok) throw new Error(`Failed to fetch ticket statuses: ${res.status}`);
+        if (!apiKey) throw new Error("HubSpot API key not configured");
+        if (!contactId) throw new Error("Contact ID not provided");
+
+        // search tickets associated with contact
+        const res = await fetch(
+            `https://api.hubapi.com/crm/v3/objects/tickets/search`,
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: "associations.contact", operator: "EQ", value: contactId }] }],
+                    properties: ["subject", "content", "status", "priority", "pipeline", "createdate", "hs_pipeline_stage"],
+                    limit: 50
+                })
+            }
+        );
+
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Failed to fetch tickets: ${res.status} - ${text}`);
+        }
         const data = await res.json();
-        const options = (data.options || []).map(o => ({ id: o.value, label: o.label }));
-        sendResponse({ success: true, options });
+        const tickets = (data.results || []).map(t => ({
+            id: t.id,
+            ...t.properties
+        }));
+
+        sendResponse({ success: true, tickets });
+
     } catch (err) {
         console.error(err);
         sendResponse({ success: false, error: err.message });
     }
 }
 
-async function handleFetchTicketSources(sendResponse) {
+async function handleCreateHubspotTicket(data, sendResponse) {
     try {
         const { hubspotApiKey: apiKey } = await getConfig();
-        const res = await fetch("https://api.hubapi.com/crm/v3/properties/tickets/source", {
-            headers: { "Authorization": `Bearer ${apiKey}` }
+        if (!apiKey) throw new Error("HubSpot API key not configured");
+
+        const { ticketPayload, contactId } = data;
+
+        const ticketRes = await fetch("https://api.hubapi.com/crm/v3/objects/tickets", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({ properties: ticketPayload })
         });
-        if (!res.ok) throw new Error(`Failed to fetch ticket sources: ${res.status}`);
-        const data = await res.json();
-        const options = (data.options || []).map(o => ({ id: o.value, label: o.label }));
-        sendResponse({ success: true, options });
+
+        if (!ticketRes.ok) {
+            const text = await ticketRes.text();
+            throw new Error(`Failed to create ticket: ${ticketRes.status} - ${text}`);
+        }
+
+        const ticketResult = await ticketRes.json();
+        const ticketId = ticketResult.id;
+
+        if (contactId) {
+            const assocRes = await fetch(
+                `https://api.hubapi.com/crm/v3/objects/tickets/${ticketId}/associations/contacts/${contactId}/ticket_to_contact`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": `Bearer ${apiKey}`
+                    }
+                }
+            );
+
+            if (!assocRes.ok) {
+                const text = await assocRes.text();
+                console.warn(`Ticket created but failed to associate with contact: ${text}`);
+            }
+
+            // Fetch full contact details
+            const contactRes = await fetch(
+                `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}?properties=firstname,lastname,email,phone,company,jobtitle,lifecyclestage,hs_lead_status,hubspot_owner_id`,
+                { headers: { "Authorization": `Bearer ${apiKey}` } }
+            );
+
+            if (!contactRes.ok) throw new Error("Failed to fetch contact details");
+            const contactData = await contactRes.json();
+
+            // Attach owner name to the contact
+            if (typeof attachOwnerName === "function") {
+                await attachOwnerName(contactData, apiKey);
+            }
+
+            // Send final response with ticket + contact
+            sendResponse({
+                success: true,
+                data: {
+                    ticket: ticketResult,
+                    contact: contactData
+                }
+            });
+
+        } else {
+            sendResponse({ success: true, data: { ticket: ticketResult } });
+        }
+
     } catch (err) {
-        console.error(err);
+        console.error(" HubSpot Ticket Creation Error:", err);
         sendResponse({ success: false, error: err.message });
     }
 }
@@ -98,7 +179,7 @@ async function handleFetchDealsByContact(contactId, sendResponse) {
         if (!apiKey) throw new Error("HubSpot API key not configured");
         if (!contactId) throw new Error("Contact ID not provided");
 
-        // HubSpot CRM API: search deals associated with contact
+        //search deals associated with contact
         const res = await fetch(
             `https://api.hubapi.com/crm/v3/objects/deals/search`,
             {
@@ -107,14 +188,7 @@ async function handleFetchDealsByContact(contactId, sendResponse) {
                     "Authorization": `Bearer ${apiKey}`,
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({
-                    filterGroups: [{
-                        filters: [{
-                            propertyName: "associations.contact",
-                            operator: "EQ",
-                            value: contactId
-                        }]
-                    }],
+                body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: "associations.contact", operator: "EQ", value: contactId }] }],
                     properties: ["dealname", "amount", "dealstage", "pipeline", "closedate", "dealtype"],
                     limit: 50
                 })
@@ -144,9 +218,8 @@ async function handleCreateHubspotDeal(data, sendResponse) {
         const { hubspotApiKey: apiKey } = await getConfig();
         if (!apiKey) throw new Error("HubSpot API key not configured");
 
+        //Create the deal
         const closedateMs = new Date(data.closeDate).getTime();
-
-        // Step 1: Create the deal
         const dealPayload = {
             properties: {
                 dealname: data.dealName,
@@ -156,15 +229,14 @@ async function handleCreateHubspotDeal(data, sendResponse) {
                 closedate: closedateMs,
                 hubspot_owner_id: data.ownerId,
                 dealtype: data.dealType
-                // priority: data.priority // uncomment if valid in your portal
             }
         };
 
         const dealRes = await fetch("https://api.hubapi.com/crm/v3/objects/deals", {
             method: "POST",
-            headers: { 
-                "Content-Type": "application/json", 
-                "Authorization": `Bearer ${apiKey}` 
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify(dealPayload)
         });
@@ -177,35 +249,29 @@ async function handleCreateHubspotDeal(data, sendResponse) {
         const dealResult = await dealRes.json();
         const dealId = dealResult.id;
 
-        // Step 2: Associate deal with the primary contact (Selcontact)
-        if (data.Selcontact) {
-            const primaryAssocRes = await fetch(
-                `https://api.hubapi.com/crm/v3/objects/deals/${dealId}/associations/contacts/${data.Selcontact}/deal_to_contact`,
-                { method: "PUT", headers: { "Authorization": `Bearer ${apiKey}` } }
-            );
-            if (!primaryAssocRes.ok) {
-                const text = await primaryAssocRes.text();
-                console.warn(`Deal created, but failed to associate with primary contact: ${text}`);
+        if (!data.contactId) throw new Error("Contact ID is required");
+        const assocRes = await fetch(
+            `https://api.hubapi.com/crm/v3/objects/deals/${dealId}/associations/contacts/${data.Selcontact}/deal_to_contact`,
+            { method: "PUT", headers: { "Authorization": `Bearer ${apiKey}` } }
+        );
+        if (!assocRes.ok) console.warn("Deal associated but something went wrong with association");
+
+        const contactRes = await fetch(
+            `https://api.hubapi.com/crm/v3/objects/contacts/${data.Selcontact}?properties=firstname,lastname,email,phone,company,jobtitle,lifecyclestage,hs_lead_status,hubspot_owner_id`,
+            { headers: { "Authorization": `Bearer ${apiKey}` } }
+        );
+        if (!contactRes.ok) throw new Error("Failed to fetch contact details");
+        const contactData = await contactRes.json();
+
+        await attachOwnerName(contactData, apiKey);
+
+        sendResponse({
+            success: true,
+            data: {
+                contact: contactData
             }
-        }
+        });
 
-        // Step 3: Optionally associate with another contact
-        if (data.contactId) {
-            await fetch(
-                `https://api.hubapi.com/crm/v3/objects/deals/${dealId}/associations/contacts/${data.contactId}/deal_to_contact`,
-                { method: "PUT", headers: { "Authorization": `Bearer ${apiKey}` } }
-            );
-        }
-
-        // Step 4: Optionally associate with company
-        if (data.companyId) {
-            await fetch(
-                `https://api.hubapi.com/crm/v3/objects/deals/${dealId}/associations/companies/${data.companyId}/deal_to_company`,
-                { method: "PUT", headers: { "Authorization": `Bearer ${apiKey}` } }
-            );
-        }
-
-        sendResponse({ success: true, data: dealResult });
     } catch (err) {
         console.error(err);
         sendResponse({ success: false, error: err.message });
@@ -381,8 +447,6 @@ async function handleFetchHubspotPipelines(sendResponse) {
     }
 }
 
-
-
 async function handleFetchNotesFromHubspot(contactId, sendResponse) {
     try {
         const { hubspotApiKey: apiKey } = await getConfig();
@@ -411,20 +475,23 @@ async function handleFetchNotesFromHubspot(contactId, sendResponse) {
 
 async function handleSaveNoteToHubspot({ contactId, note, timestamp }, sendResponse) {
     try {
+        //Get HubSpot API key
         const { hubspotApiKey: apiKey } = await getConfig();
         if (!apiKey) throw new Error("No HubSpot API key found");
         if (!contactId) throw new Error("No HubSpot contact ID provided");
 
+        //Prepare the note payload
         const payload = {
             engagement: {
                 active: true,
                 type: "NOTE",
-                timestamp: new Date(timestamp).getTime()
+                timestamp: new Date(timestamp).getTime() || Date.now()
             },
             associations: { contactIds: [contactId] },
             metadata: { body: note }
         };
 
+        //Save note in HubSpot
         const res = await fetch("https://api.hubapi.com/engagements/v1/engagements", {
             method: "POST",
             headers: {
@@ -435,8 +502,27 @@ async function handleSaveNoteToHubspot({ contactId, note, timestamp }, sendRespo
         });
 
         if (!res.ok) throw new Error(`Failed to save note: ${res.status}`);
-        const result = await res.json();
-        sendResponse({ success: true, data: result });
+        const savedNote = await res.json();
+
+        // Fetch full contact details
+        const contactRes = await fetch(
+            `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}?properties=firstname,lastname,email,phone,company,jobtitle,lifecyclestage,hs_lead_status,hubspot_owner_id`,
+            { headers: { "Authorization": `Bearer ${apiKey}` } }
+        );
+        if (!contactRes.ok) throw new Error("Failed to fetch contact details");
+        const contactData = await contactRes.json();
+
+        //Attach owner name to the contact
+        await attachOwnerName(contactData, apiKey);
+
+        // Send final response with contact + note
+        sendResponse({
+            success: true,
+            data: {
+                contact: contactData,
+                note: savedNote
+            }
+        });
 
     } catch (err) {
         sendResponse({ success: false, error: err.message });
@@ -480,8 +566,6 @@ async function fetchContactByPhone(phone, properties = ["firstname", "lastname",
     const data = await res.json();
     return data.results?.[0] || null;
 }
-
-// -------------------- Action Handlers --------------------
 
 async function handleTestConnection(sendResponse) {
     try {
